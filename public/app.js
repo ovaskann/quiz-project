@@ -1,5 +1,7 @@
 // --- State ---
 let isRegisterMode = false;
+let randomQuizQuestions = [];
+let isRandomQuizMode = false;
 
 // --- Helpers ---
 function getCurrentUserId() {
@@ -115,6 +117,8 @@ async function showApp() {
 }
 
 async function loadQuestions(keyword = "", page = 1) {
+  isRandomQuizMode = false;
+
   const container = document.getElementById("questions-container");
   container.innerHTML = '<p class="loading">Loading questions...</p>';
 
@@ -140,6 +144,7 @@ async function loadQuestions(keyword = "", page = 1) {
       </div>
       <div class="toolbar">
         <button class="btn btn-primary" id="new-question-btn">+ New Question</button>
+        <button class="btn btn-random" id="random-quiz-btn">10 random questions</button>
         <div class="search-bar">
           <input type="text" id="keyword-input" placeholder="Search by keyword..." value="${keyword}" />
           <button class="btn btn-search" id="search-btn">Search</button>
@@ -194,6 +199,8 @@ async function loadQuestions(keyword = "", page = 1) {
     container.innerHTML = html;
 
     document.getElementById("new-question-btn").addEventListener("click", () => showQuestionForm());
+    
+    document.getElementById("random-quiz-btn").addEventListener("click", () => loadRandomQuestions());
 
     document.getElementById("search-btn").addEventListener("click", () => {
       loadQuestions(document.getElementById("keyword-input").value.trim(), 1);
@@ -240,6 +247,71 @@ async function loadQuestions(keyword = "", page = 1) {
   }
 }
 
+async function loadRandomQuestions() {
+  isRandomQuizMode = true;
+
+  const container = document.getElementById("questions-container");
+  container.innerHTML = '<p class="loading">Loading random questions...</p>';
+
+  try {
+    const result = await apiFetch(`${CONFIG.ROUTES.QUESTIONS}/random-quiz`);
+    randomQuizQuestions = result.data;
+    renderRandomQuestions();
+
+  } catch (err) {
+    container.innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+function renderRandomQuestions() {
+  const container = document.getElementById("questions-container");
+
+  let html = `<a href="#" id="back-btn" class="back-link">&larr; Back to questions</a>`;
+  
+  if (randomQuizQuestions.length === 0) {
+    html += `<p class="empty-state">No questions available.</p>`;
+  } else {
+    html += randomQuizQuestions
+      .map(
+        (q) => `
+      <article class="question-card ${q[CONFIG.API_FIELDS.SOLVED] ? "solved-card" : ""}">
+        <h3>
+          <a href="#" class="question-link" data-id="${q.id}">${q.question}</a>
+          ${q[CONFIG.API_FIELDS.SOLVED] ? `<span class="badge-solved">Solved</span>` : ""}
+        </h3>
+        ${
+          q.keywords && q.keywords.length
+            ? `<div class="question-keywords">${q.keywords.map((k) => `<span class="keyword">${k}</span>`).join("")}</div>`
+            : ""
+          }
+          <div class="question-actions">
+            <button class="btn btn-play" data-id="${q.id}">Play</button>
+            <a href="#" class="read-more" data-id="${q.id}">See answer</a>
+          </div>
+        </article>`
+        )
+        .join("")
+      };
+
+  container.innerHTML = html;
+
+  document.getElementById("back-btn").addEventListener("click", (e) => {
+    e.preventDefault();
+    loadQuestions();
+  });
+
+  container.querySelectorAll(".btn-play").forEach((el) => {
+    el.addEventListener("click", () => playQuestion(el.dataset.id));
+  });
+
+  container.querySelectorAll(".question-link, .read-more").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      loadQuestionDetail(el.dataset.id);
+    });
+  });
+}
+
 async function loadQuestionDetail(qId) {
   const container = document.getElementById("questions-container");
   container.innerHTML = '<p class="loading">Loading...</p>';
@@ -273,7 +345,12 @@ async function loadQuestionDetail(qId) {
 
     document.getElementById("back-btn").addEventListener("click", (e) => {
       e.preventDefault();
-      loadQuestions();
+
+      if (isRandomQuizMode) {
+        renderRandomQuestions();
+      } else {
+        loadQuestions();
+      }
     });
 
     if (isOwner) {
@@ -329,7 +406,11 @@ async function showQuestionForm(qId) {
 
   document.getElementById("back-btn").addEventListener("click", (e) => {
     e.preventDefault();
-    loadQuestions();
+    if (isRandomQuizMode) {
+      renderRandomQuestions();
+    } else {
+      loadQuestions();
+    }
   });
 
   document.getElementById("question-form").addEventListener("submit", async (e) => {
@@ -350,7 +431,11 @@ async function showQuestionForm(qId) {
       } else {
         await apiFetch(CONFIG.ROUTES.QUESTIONS, { method: "POST", body });
       }
-      loadQuestions();
+      if (isRandomQuizMode) {
+        renderRandomQuestions();
+      } else {
+        loadQuestions();
+      }
     } catch (err) {
       errorEl.textContent = err.message;
     }
@@ -390,7 +475,11 @@ async function playQuestion(qId) {
 
     document.getElementById("back-btn").addEventListener("click", (e) => {
       e.preventDefault();
-      loadQuestions();
+      if (isRandomQuizMode) {
+        renderRandomQuestions();
+      } else {
+        loadQuestions();
+      }
     });
 
     document.getElementById("play-form").addEventListener("submit", async (e) => {

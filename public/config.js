@@ -10,7 +10,7 @@ const CONFIG = {
     REGISTER: ["email", "password", "name"],
     QUESTION: ["question", "answer", "keywords"],
   },
-  QUESTIONS_PER_PAGE: 5,
+  QUESTIONS_PER_PAGE: 10,
   STORAGE_KEY: "jwt_token",
   API_FIELDS: {
     SOLVED: "solved",

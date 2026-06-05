@@ -73,7 +73,7 @@ router.get("/", async (req, res) => {
     const where = keyword ? { keywords: { some: { name: keyword } } } : {};
 
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 5));
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 10));
     const skip = (page-1)*limit;
 
     const [filteredQuestions, total ] = await Promise.all([
@@ -99,6 +99,22 @@ router.get("/", async (req, res) => {
         total,
         totalPages: Math.ceil(total/limit),
     })
+});
+
+// GET /api/questions/random-quiz
+// Get 10 random questions
+router.get("/random-quiz", async (req, res) => {
+    const questions = await prisma.question.findMany({
+        include: {
+            keywords: true,
+            user: true,
+            attempts: {where: {userId: req.user.userId}, take: 1},
+            _count: {select: {attempts: true}}
+        },
+    });
+    const shuffled = questions.sort(() => 0.5 - Math.random());
+
+    res.json({ data: shuffled.slice(0, 10).map(formatQuestion) });
 });
 
 // GET /api/questions/:questionId
